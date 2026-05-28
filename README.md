@@ -1,3 +1,6 @@
+<img width="855" height="213" alt="Screenshot 2026-05-28 at 4 09 53 PM" src="https://github.com/user-attachments/assets/de72a331-66a8-426e-a4ee-efc281dcd8e2" />
+
+
 # CVE-2026-42945 — NGINX Rift
 
 **Heap Buffer Overflow in NGINX `ngx_http_rewrite_module`**
