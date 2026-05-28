@@ -213,7 +213,7 @@ def main():
     print(f"\n# Total: {len(payloads)} payload(s)")
 
     print(f"\n# Use with exploit.py:")
-    print(f"python3 scripts/exploit.py --host TARGET --port 19321 "
+    print(f"python3 exploit/exploit.py --host TARGET --port 19321 "
           f"--cmd \"{payloads[0]}\"")
 
     return 0

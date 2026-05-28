@@ -1,6 +1,6 @@
 #!/bin/bash
 # run_all.sh — Complete CVE-2026-42945 Pipeline
-# Runs every script in ./scripts/ in dependency order.
+# Runs all phases in dependency order.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -20,16 +20,16 @@ run_config() {
     echo "Testing: $label ($config)"
 
     # Write config
-    cp "$config" "$ROOT/env/nginx.conf"
+    cp "$config" "$ROOT/docker/nginx.conf"
 
     # Restart nginx
-    cd "$ROOT/env" && docker compose restart nginx -t 10 > /dev/null 2>&1 || {
+    cd "$ROOT/docker" && docker compose restart nginx -t 10 > /dev/null 2>&1 || {
         docker compose up -d > /dev/null 2>&1 || true
     }
     sleep 3
 
     # Health check
-    if ! python3 "$ROOT/scripts/trigger.py" --host "$HOST" --port "$PORT" --check-alive > /dev/null 2>&1; then
+    if ! python3 "$ROOT/exploit/trigger.py" --host "$HOST" --port "$PORT" --check-alive > /dev/null 2>&1; then
         echo "  [SKIP] nginx not responding"
         return
     fi
@@ -37,13 +37,13 @@ run_config() {
     # Run trigger
     local out="$RESULTS/${label}.txt"
     set +e
-    python3 "$ROOT/scripts/trigger.py" --host "$HOST" --port "$PORT" --plus-count 969 > "$out" 2>&1
+    python3 "$ROOT/exploit/trigger.py" --host "$HOST" --port "$PORT" --plus-count 969 > "$out" 2>&1
     local rc=$?
     set -e
 
     # Check crash
     sleep 2
-    if python3 "$ROOT/scripts/trigger.py" --host "$HOST" --port "$PORT" --check-alive > /dev/null 2>&1; then
+    if python3 "$ROOT/exploit/trigger.py" --host "$HOST" --port "$PORT" --check-alive > /dev/null 2>&1; then
         alive=true
     else
         alive=false

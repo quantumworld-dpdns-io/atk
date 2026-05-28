@@ -7,7 +7,7 @@ RESULTS="$ROOT/results/regression"
 mkdir -p "$RESULTS"
 rm -f "$RESULTS"/*.txt
 
-DOCKER_DIR="$ROOT/env"
+DOCKER_DIR="$ROOT/docker"
 PASS=0
 FAIL=0
 SKIP=0
@@ -24,7 +24,7 @@ test_version_config() {
     # Build nginx image for this version
     if ! docker build -t nginx-test:"$version" \
         --build-arg NGINX_VERSION="$version" \
-        -f "$ROOT/Dockerfile.patched" . > /dev/null 2>&1; then
+        -f "$ROOT/docker/Dockerfile.patched" "$ROOT/docker" > /dev/null 2>&1; then
         echo "SKIP (build failed)"
         SKIP=$((SKIP+1))
         return
@@ -46,10 +46,10 @@ test_version_config() {
 
     # Test
     set +e
-    python3 "$ROOT/scripts/trigger.py" --plus-count 969 > "$out" 2>&1
+    python3 "$ROOT/exploit/trigger.py" --plus-count 969 > "$out" 2>&1
     local trigger_rc=$?
     sleep 2
-    python3 "$ROOT/scripts/trigger.py" --check-alive >> "$out" 2>&1
+    python3 "$ROOT/exploit/trigger.py" --check-alive >> "$out" 2>&1
     local alive_rc=$?
     set -e
 
