@@ -9,5 +9,8 @@ services:
     init: true
     ports:
       - "19321:19321"
+    environment:
+      - QEMU_GUEST_RANDOMIZE=0
+      - QEMU_SET_ENV=ADDR_NO_RANDOMIZE=1
     tty: true
     stdin_open: true
