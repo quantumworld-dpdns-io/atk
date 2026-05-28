@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/nginx/nginx.git /nginx-src \
-    && cd /nginx-src && git checkout 98fc3bb78
+    && cd /nginx-src && git checkout release-1.30.0
 
 RUN cd /nginx-src && ./auto/configure \
     --builddir=build \
