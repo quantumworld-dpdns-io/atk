@@ -6,40 +6,40 @@ PORT ?= 19321
 HOST ?= 127.0.0.1
 
 build:
-	docker compose -f env/docker-compose.yml build
+	docker compose -f docker/docker-compose.yml build
 
 run:
-	docker compose -f env/docker-compose.yml up
+	docker compose -f docker/docker-compose.yml up
 
 stop:
-	docker compose -f env/docker-compose.yml down
+	docker compose -f docker/docker-compose.yml down
 
 vuln-container:
-	docker build -t nginx-rift-vuln -f Dockerfile.patched --build-arg NGINX_TYPE=vulnerable .
+	docker build -t nginx-rift-vuln -f docker/Dockerfile.patched --build-arg NGINX_TYPE=vulnerable docker/
 
 fix-container:
-	docker build -t nginx-rift-fixed -f Dockerfile.patched --build-arg NGINX_TYPE=patched .
+	docker build -t nginx-rift-fixed -f docker/Dockerfile.patched --build-arg NGINX_TYPE=patched docker/
 
 asan-container:
-	docker build -t nginx-rift-asan -f ci/Dockerfile.asan .
+	docker build -t nginx-rift-asan -f docker/Dockerfile.asan docker/
 
 trigger:
-	python3 scripts/trigger.py --host $(HOST) --port $(PORT)
+	python3 exploit/trigger.py --host $(HOST) --port $(PORT)
 
 exploit:
-	python3 scripts/exploit.py --host $(HOST) --port $(PORT) --cmd 'whoami > /tmp/pwned'
+	python3 exploit/exploit.py --host $(HOST) --port $(PORT) --cmd 'whoami > /tmp/pwned'
 
 detect:
-	bash scripts/detect_vuln.sh
+	bash detection/detect_vuln.sh
 
 vuln-config:
-	python3 scripts/config_scanner.py configs/vulnerable.conf
+	python3 exploit/config_scanner.py configs/vulnerable.conf
 
 safe-config:
-	python3 scripts/config_scanner.py configs/safe.conf
+	python3 exploit/config_scanner.py configs/safe.conf
 
 scan-images:
-	python3 scripts/container_scan.py
+	python3 detection/container_scan.py
 
 fuzz:
 	cd fuzz && bash fuzz_build.sh && ./build/ngx_script_fuzz corpus/
@@ -48,13 +48,13 @@ fuzz-repro:
 	cd fuzz && ./build/ngx_script_fuzz crashes/
 
 monitor:
-	python3 scripts/monitor_worker.py --host $(HOST) --port $(PORT)
+	python3 exploit/monitor_worker.py --host $(HOST) --port $(PORT)
 
 test:
 	bash test/run_tests.sh
 
 compare:
-	python3 scripts/compare_lengths.py --string "$$(python3 -c "print('A'*349 + '+'*969)")"
+	python3 exploit/compare_lengths.py --string "$$(python3 -c "print('A'*349 + '+'*969)")"
 
 patch:
 	patch -p1 < patches/0001-fix-is_args.patch
@@ -64,5 +64,5 @@ shell-collector:
 	@nc -l -p 1337
 
 clean:
-	rm -rf env/logs env/tmp fuzz/build
-	docker compose -f env/docker-compose.yml down -v 2>/dev/null || true
+	rm -rf docker/logs docker/tmp fuzz/build
+	docker compose -f docker/docker-compose.yml down -v 2>/dev/null || true

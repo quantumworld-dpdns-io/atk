@@ -1,2 +1,16 @@
+docker/logs/
+docker/tmp/
+fuzz/build/
+fuzz/afl_output/
+results/
+*.o
+*.pyc
+__pycache__/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+core.*
 .DS_Store
 .DS_Store

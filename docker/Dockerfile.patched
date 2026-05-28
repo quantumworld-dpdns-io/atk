@@ -35,7 +35,7 @@ WORKDIR /app
 
 ARG NGINX_TYPE=vulnerable
 COPY --from=${NGINX_TYPE} /nginx-src/build/nginx /usr/local/sbin/nginx
-COPY env/nginx.conf env/server.py env/entrypoint.sh ./
+COPY nginx.conf server.py entrypoint.sh ./
 RUN chmod +x entrypoint.sh && mkdir -p logs tmp
 
 ENTRYPOINT ["/app/entrypoint.sh"]

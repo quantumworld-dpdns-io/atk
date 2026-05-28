@@ -17,7 +17,7 @@ RUN cd /nginx-src && ./auto/configure \
     && make -j$(nproc)
 
 WORKDIR /app
-COPY env/nginx.conf env/server.py env/entrypoint.sh ./
+COPY nginx.conf server.py entrypoint.sh ./
 RUN chmod +x entrypoint.sh && mkdir -p logs tmp
 
 ENV ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:log_path=/tmp/asan
