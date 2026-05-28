@@ -1,0 +1,61 @@
+# Suricata/Snort Rule for CVE-2026-42945 (NGINX Rift)
+#
+# Detects exploitation attempts against CVE-2026-42945 heap buffer overflow
+# in NGINX ngx_http_rewrite_module.
+#
+# The exploit sends URIs with an excessive number of '+' characters or
+# other escapable URI characters (%26=&, %2B=+, %25=%) in paths that
+# match vulnerable rewrite patterns.
+
+# Detect URIs with 100+ consecutive plus signs (exploit signal)
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"CVE-2026-42945 NGINX Rift exploit attempt — excessive plus signs"; \
+     flow:to_server,established; \
+     content:"GET"; http_method; \
+     pcre:"/\+{100,}/U"; \
+     pcre:"/^\/api\//U"; \
+     classtype:attempted-admin; \
+     sid:10000001; \
+     rev:1; \
+     priority:1; \
+     reference:cve,CVE-2026-42945; \
+     reference:url,depthfirst.com/nginx-rift;)
+
+# Detect URIs with excessive encoded escapable chars
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"CVE-2026-42945 NGINX Rift exploit attempt — encoded escapable chars"; \
+     flow:to_server,established; \
+     content:"GET"; http_method; \
+     pcre:"/(?:%26|%2B|%25){50,}/Ui"; \
+     classtype:attempted-admin; \
+     sid:10000002; \
+     rev:1; \
+     priority:1; \
+     reference:cve,CVE-2026-42945; \
+     reference:url,depthfirst.com/nginx-rift;)
+
+# Detect POST spray requests (heap feng shui indicator)
+alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"CVE-2026-42945 NGINX Rift heap spray POST detected"; \
+     flow:to_server,established; \
+     content:"POST"; http_method; \
+     content:"/spray"; http_uri; \
+     content:"Content-Length\x3a 4000"; http_header; \
+     pcre:"/X-Delay\x3a\s*60/iP"; \
+     classtype:attempted-admin; \
+     sid:10000003; \
+     rev:1; \
+     priority:2; \
+     reference:cve,CVE-2026-42945;)
+
+# Alert on rapid connection cycling (worker crash-recovery detection)
+alert tcp $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"CVE-2026-42945 NGINX Rift — possible crash-loop DoS"; \
+     flow:to_server; \
+     flags:S,12; \
+     detection_filter:track by_src, count 50, seconds 10; \
+     classtype:attempted-dos; \
+     sid:10000004; \
+     rev:1; \
+     priority:2; \
+     reference:cve,CVE-2026-42945;)
