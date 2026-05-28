@@ -3,6 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+EXPLOIT="$PROJECT_DIR/exploit"
+DETECTION="$PROJECT_DIR/detection"
+TOOLS="$PROJECT_DIR/tools"
 
 echo "=== CVE-2026-42945 Test Suite ==="
 echo ""
@@ -29,15 +32,15 @@ python3 -m pytest "$SCRIPT_DIR/test_*" -v --tb=short 2>/dev/null || \
 
 echo ""
 echo "--- Testing trigger/overflow ---"
-python3 "$PROJECT_DIR/scripts/trigger.py" --check-alive && \
+python3 "$EXPLOIT/trigger.py" --check-alive && \
     echo "OK: Server is alive" || \
     echo "WARN: Server not alive"
 
 echo ""
 echo "--- Testing config scanner ---"
-python3 "$PROJECT_DIR/scripts/config_scanner.py" \
+python3 "$EXPLOIT/config_scanner.py" \
     "$PROJECT_DIR/configs/vulnerable.conf"
-python3 "$PROJECT_DIR/scripts/config_scanner.py" \
+python3 "$EXPLOIT/config_scanner.py" \
     "$PROJECT_DIR/configs/safe.conf"
 
 echo ""
