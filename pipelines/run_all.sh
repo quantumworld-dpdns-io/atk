@@ -80,10 +80,10 @@ run_py "py_compile_backport"      -m py_compile "$TOOLS/backport_check.py"
 run_py "py_compile_afl_runner"    -m py_compile "$TOOLS/afl_runner.sh"
 
 if command -v shellcheck &>/dev/null; then
-    run_sh "shellcheck_detect_vuln"   "$SCRIPTS/detect_vuln.sh"
-    run_sh "shellcheck_coredump"      "$SCRIPTS/coredump_analyzer.sh"
-    run_sh "shellcheck_apply_fix"     "$SCRIPTS/apply_fix.sh"
-    run_sh "shellcheck_verify"        "$SCRIPTS/verify_project.sh"
+    run_sh "shellcheck_detect_vuln"   "$DETECTION/detect_vuln.sh"
+    run_sh "shellcheck_coredump"      "$TOOLS/coredump_analyzer.sh"
+    run_sh "shellcheck_apply_fix"     "$TOOLS/apply_fix.sh"
+    run_sh "shellcheck_verify"        "$TOOLS/verify_project.sh"
 else
     skip "shellcheck not installed — skipping shell lint"
 fi
@@ -93,20 +93,20 @@ fi
 # ---------------------------------------------------------------------------
 banner "Phase 2 — Static Analysis"
 
-run_py "config_scanner_vuln"    "$SCRIPTS/config_scanner.py" "$ROOT/configs/vulnerable.conf"
-run_py "config_scanner_safe"    "$SCRIPTS/config_scanner.py" "$ROOT/configs/safe.conf"
-run_py "config_scanner_named"   "$SCRIPTS/config_scanner.py" "$ROOT/configs/named_capture.conf"
+run_py "config_scanner_vuln"    "$EXPLOIT/config_scanner.py" "$ROOT/configs/vulnerable.conf"
+run_py "config_scanner_safe"    "$EXPLOIT/config_scanner.py" "$ROOT/configs/safe.conf"
+run_py "config_scanner_named"   "$EXPLOIT/config_scanner.py" "$ROOT/configs/named_capture.conf"
 
-run_py "escape_calc_default"    "$SCRIPTS/escape_calc.py" --prefix 349 --plus 969
-run_py "escape_calc_find_min_64"  "$SCRIPTS/escape_calc.py" --find-min 64
-run_py "escape_calc_find_min_128" "$SCRIPTS/escape_calc.py" --find-min 128
+run_py "escape_calc_default"    "$EXPLOIT/escape_calc.py" --prefix 349 --plus 969
+run_py "escape_calc_find_min_64"  "$EXPLOIT/escape_calc.py" --find-min 64
+run_py "escape_calc_find_min_128" "$EXPLOIT/escape_calc.py" --find-min 128
 
-run_py "compare_lengths_default" "$SCRIPTS/compare_lengths.py" \
+run_py "compare_lengths_default" "$EXPLOIT/compare_lengths.py" \
     --string "$(python3 -c "print('A'*349 + '+'*969)")"
 
-run_py "find_safe_addrs"        "$SCRIPTS/find_safe_addrs.py" --heap-base 0x555555659000 --count 5
+run_py "find_safe_addrs"        "$EXPLOIT/find_safe_addrs.py" --heap-base 0x555555659000 --count 5
 
-run_py "container_scan"         "$SCRIPTS/container_scan.py" 2>/dev/null || pass "container_scan (images may not be local)"
+run_py "container_scan"         "$DETECTION/container_scan.py" 2>/dev/null || pass "container_scan (images may not be local)"
 
 # ---------------------------------------------------------------------------
 # Phase 3 — Environment Startup
@@ -145,7 +145,7 @@ fi
 banner "Phase 4 — Live Testing"
 
 if alive; then
-    run_py "health_check"        "$SCRIPTS/trigger.py" --host 127.0.0.1 --port 19321 --check-alive
+    run_py "health_check"        "$EXPLOIT/trigger.py" --host 127.0.0.1 --port 19321 --check-alive
 
     run_py "normal_request"      -c "
 import urllib.request
@@ -155,10 +155,10 @@ assert b'ok' in r.read()
 print('Normal request OK')
 "
 
-    run_py "heap_layout"         "$SCRIPTS/heap_layout.py"
+    run_py "heap_layout"         "$EXPLOIT/heap_layout.py"
 
     info "Triggering overflow..."
-    run_py "trigger_overflow"    "$SCRIPTS/trigger.py" --host 127.0.0.1 --port 19321 --plus-count 969
+    run_py "trigger_overflow"    "$EXPLOIT/trigger.py" --host 127.0.0.1 --port 19321 --plus-count 969
 
     sleep 2
     if alive; then
@@ -167,11 +167,11 @@ print('Normal request OK')
         fail "worker did not respawn"
     fi
 
-    run_py "detect_vuln_local"   "$SCRIPTS/detect_vuln.sh"
+    run_py "detect_vuln_local"   "$DETECTION/detect_vuln.sh"
 
     run_py "monitor_worker"      -c "
 import subprocess, time, signal
-p = subprocess.Popen(['python3', '$SCRIPTS/monitor_worker.py',
+p = subprocess.Popen(['python3', '$EXPLOIT/monitor_worker.py',
     '--host', '127.0.0.1', '--port', '19321', '--interval', '0.5'],
     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 time.sleep(3)
@@ -193,7 +193,7 @@ print('Patch format valid')
 "
     fi
 
-    run_py "h2_trigger"          "$SCRIPTS/h2_trigger.py" --insecure 2>/dev/null || \
+    run_py "h2_trigger"          "$EXPLOIT/h2_trigger.py" --insecure 2>/dev/null || \
         pass "h2_trigger (expected to fail without h2c)"
 else
     skip "live tests — nginx not running"
@@ -205,7 +205,7 @@ fi
 banner "Phase 5 — Log Analysis"
 
 if [ -f "$ENV_DIR/logs/error.log" ]; then
-    run_py "log_parser"          "$SCRIPTS/log_parser.py" "$ENV_DIR/logs/error.log"
+    run_py "log_parser"          "$EXPLOIT/log_parser.py" "$ENV_DIR/logs/error.log"
 else
     LOG_DIR="$ROOT/results/logs"
     mkdir -p "$LOG_DIR"
@@ -254,7 +254,7 @@ fi
 # ---------------------------------------------------------------------------
 banner "Phase 7 — Project Verification"
 
-run_sh "verify_project"         "$SCRIPTS/verify_project.sh"
+run_sh "verify_project"         "$TOOLS/verify_project.sh"
 
 # ---------------------------------------------------------------------------
 # Summary
